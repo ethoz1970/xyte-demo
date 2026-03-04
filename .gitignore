@@ -1,0 +1,10 @@
+# video files are too large for git — upload directly to Railway or use a volume
+videos/*.avi
+videos/*.mp4
+videos/*.mov
+videos/*.mkv
+!videos/.gitkeep
+
+__pycache__/
+*.pyc
+.env

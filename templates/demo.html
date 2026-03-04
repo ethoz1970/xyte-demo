@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Xyte — Privacy-Preserving Vision</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:       #060A0D;
+      --surface:  #0a1520;
+      --border:   #1a2a3a;
+      --muted:    #456;
+      --text:     #ccc;
+      --accent:   #7ecfff;
+      --green:    #66ff99;
+      --yellow:   #ffe066;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 16px 20px 12px;
+      gap: 12px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .wordmark {
+      font-size: 1.4rem;
+      letter-spacing: 0.35em;
+      color: #fff;
+      text-transform: uppercase;
+    }
+
+    .wordmark span {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* scenario switcher */
+    .scenario-nav {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .nav-arrow {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 1rem;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      line-height: 1;
+    }
+
+    .nav-arrow:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-arrow:disabled { opacity: 0.25; cursor: default; }
+
+    .scenario-info {
+      text-align: center;
+      min-width: 180px;
+    }
+
+    .scenario-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .scenario-sub {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* progress bar */
+    .progress-wrap {
+      width: 140px;
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      margin: 6px auto 0;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 1s linear;
+    }
+
+    /* CTA */
+    .cta {
+      display: inline-block;
+      padding: 8px 20px;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .cta:hover { background: var(--accent); color: var(--bg); }
+
+    /* ── Video stage ─────────────────────────────────────────── */
+    .stage {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #000;
+      cursor: pointer;
+      min-height: 0;
+    }
+
+    /* The video fills the stage in 4-panel (full) mode */
+    .stage video {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: contain;
+      transition: none;
+    }
+
+    /* Zoomed mode — scale to 2× and offset to selected quadrant */
+    .stage.zoomed video {
+      width: 200%;
+      height: 200%;
+      object-fit: fill;
+    }
+
+    .stage.zoomed.quad-raw        video { top: 0%;    left: 0%; }
+    .stage.zoomed.quad-classified video { top: 0%;    left: -100%; }
+    .stage.zoomed.quad-blur       video { top: -100%; left: 0%; }
+    .stage.zoomed.quad-blur2      video { top: -100%; left: -100%; }
+
+    /* Hover quadrant highlight (only in full mode) */
+    .quad-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+
+    .quad-zone {
+      border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .stage:not(.zoomed) .quad-zone:hover {
+      background: rgba(126, 207, 255, 0.07);
+      border-color: rgba(126, 207, 255, 0.25);
+    }
+
+    .quad-overlay { pointer-events: none; }
+    .stage:not(.zoomed) .quad-overlay { pointer-events: all; }
+
+    /* zoom-out hint */
+    .zoom-hint {
+      position: absolute;
+      bottom: 12px;
+      right: 14px;
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      color: rgba(126, 207, 255, 0.5);
+      text-transform: uppercase;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .stage.zoomed .zoom-hint { opacity: 1; }
+
+    /* zoomed panel label */
+    .zoom-label {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .stage.zoomed .zoom-label { opacity: 1; }
+    .zoom-label.raw        { color: #888; }
+    .zoom-label.classified { color: var(--accent); }
+    .zoom-label.blur       { color: var(--yellow); }
+    .zoom-label.blur2      { color: var(--green); }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* ── No scenarios state ──────────────────────────────────── */
+    .empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    /* fade transition between scenarios */
+    .stage.fading video { opacity: 0; transition: opacity 0.4s; }
+    .stage video        { opacity: 1; transition: opacity 0.4s; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header>
+    <div class="wordmark">
+      Xyte
+      <span>Privacy-preserving vision</span>
+    </div>
+
+    <div class="scenario-nav" id="scenarioNav">
+      <button class="nav-arrow" id="prevBtn" onclick="prevScenario()">&#8592;</button>
+      <div class="scenario-info">
+        <div class="scenario-title" id="scenarioTitle">—</div>
+        <div class="scenario-sub"  id="scenarioSub">Loading…</div>
+        <div class="progress-wrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+      <button class="nav-arrow" id="nextBtn" onclick="nextScenario()">&#8594;</button>
+    </div>
+
+    <a class="cta" href="mailto:blackskymedia@gmail.com?subject=Xyte Early Access">
+      Request Access
+    </a>
+  </header>
+
+  <!-- ── Video stage ────────────────────────────────────────── -->
+  <div class="stage" id="stage" onclick="handleStageClick(event)">
+
+    <video id="vid" autoplay muted playsinline loop></video>
+
+    <!-- clickable quadrant zones (only active in full mode) -->
+    <div class="quad-overlay">
+      <div class="quad-zone" data-quad="raw"        title="RAW"></div>
+      <div class="quad-zone" data-quad="classified" title="CLASSIFIED"></div>
+      <div class="quad-zone" data-quad="blur"       title="BLUR"></div>
+      <div class="quad-zone" data-quad="blur2"      title="BLUR 2"></div>
+    </div>
+
+    <div class="zoom-label" id="zoomLabel"></div>
+    <div class="zoom-hint">click to zoom out · esc</div>
+
+    <div class="empty" id="emptyState" style="display:none">
+      <div>No scenarios loaded</div>
+      <div style="color:#333;font-size:0.55rem">Add .avi files to the videos/ folder and update scenarios.json</div>
+    </div>
+  </div>
+
+  <!-- ── Footer ─────────────────────────────────────────────── -->
+  <footer>
+    <span>Xyte &copy; 2026</span>
+    <span id="footerStatus">4-panel view &middot; click any panel to zoom</span>
+    <span id="scenarioCounter"></span>
+  </footer>
+
+</div>
+
+<script>
+  // ── Scenario data (injected by Flask) ─────────────────────
+  const SCENARIOS = {{ scenarios | tojson }};
+
+  let currentIdx  = 0;
+  let isZoomed    = false;
+  let activeQuad  = null;
+  let advanceTimer   = null;
+  let progressTimer  = null;
+  const ADVANCE_SECS = 45;   // auto-advance interval per scenario
+
+  const stage    = document.getElementById('stage');
+  const vid      = document.getElementById('vid');
+  const bar      = document.getElementById('progressBar');
+  const title    = document.getElementById('scenarioTitle');
+  const sub      = document.getElementById('scenarioSub');
+  const counter  = document.getElementById('scenarioCounter');
+  const zoomLbl  = document.getElementById('zoomLabel');
+  const emptyDiv = document.getElementById('emptyState');
+  const footer   = document.getElementById('footerStatus');
+
+  // ── Init ──────────────────────────────────────────────────
+  function init() {
+    if (!SCENARIOS.length) {
+      emptyDiv.style.display = '';
+      vid.style.display = 'none';
+      document.getElementById('scenarioNav').style.visibility = 'hidden';
+      return;
+    }
+    loadScenario(0);
+  }
+
+  // ── Load a scenario ───────────────────────────────────────
+  function loadScenario(idx, instant) {
+    clearTimers();
+    currentIdx = ((idx % SCENARIOS.length) + SCENARIOS.length) % SCENARIOS.length;
+    const s = SCENARIOS[currentIdx];
+
+    // fade out → swap src → fade in
+    if (!instant) stage.classList.add('fading');
+    setTimeout(() => {
+      vid.src = '/videos/' + s.file;
+      vid.load();
+      vid.play().catch(() => {});
+      stage.classList.remove('fading');
+    }, instant ? 0 : 350);
+
+    title.textContent   = s.title;
+    sub.textContent     = s.subtitle || '';
+    counter.textContent = `${currentIdx + 1} / ${SCENARIOS.length}`;
+
+    updateNavBtns();
+    startProgress();
+    zoomOut(true);  // always reset to full view on scenario change
+  }
+
+  // ── Navigation ────────────────────────────────────────────
+  function prevScenario() { loadScenario(currentIdx - 1); }
+  function nextScenario() { loadScenario(currentIdx + 1); }
+
+  function updateNavBtns() {
+    // always allow cycling — arrows just wrap
+    document.getElementById('prevBtn').disabled = false;
+    document.getElementById('nextBtn').disabled = false;
+  }
+
+  // ── Auto-advance progress bar ─────────────────────────────
+  function startProgress() {
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    // force reflow so transition reset takes effect
+    void bar.offsetWidth;
+    bar.style.transition = `width ${ADVANCE_SECS}s linear`;
+    bar.style.width = '100%';
+
+    advanceTimer = setTimeout(() => {
+      loadScenario(currentIdx + 1);
+    }, ADVANCE_SECS * 1000);
+  }
+
+  function clearTimers() {
+    clearTimeout(advanceTimer);
+    clearTimeout(progressTimer);
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+  }
+
+  // ── Zoom ─────────────────────────────────────────────────
+  // The composite video is 1280×720 with 4 equal quadrants:
+  //   top-left  = RAW          top-right  = CLASSIFIED
+  //   bot-left  = BLUR         bot-right  = BLUR2
+  //
+  // In zoomed mode we scale the video to 200%×200% and offset
+  // it so only the selected quadrant is visible.
+
+  const QUAD_LABELS = {
+    raw:        { text: 'Raw',        cls: 'raw'        },
+    classified: { text: 'Classified', cls: 'classified' },
+    blur:       { text: 'Blur',       cls: 'blur'       },
+    blur2:      { text: 'Blur 2',     cls: 'blur2'      },
+  };
+
+  function zoomTo(quad) {
+    isZoomed  = true;
+    activeQuad = quad;
+
+    stage.classList.add('zoomed');
+    stage.classList.remove('quad-raw', 'quad-classified', 'quad-blur', 'quad-blur2');
+    stage.classList.add('quad-' + quad);
+
+    const q = QUAD_LABELS[quad];
+    zoomLbl.textContent  = q.text;
+    zoomLbl.className    = 'zoom-label ' + q.cls;
+
+    footer.textContent = q.text.toUpperCase() + ' view · click or press Esc to zoom out';
+  }
+
+  function zoomOut(silent) {
+    isZoomed  = false;
+    activeQuad = null;
+    stage.classList.remove('zoomed', 'quad-raw', 'quad-classified', 'quad-blur', 'quad-blur2');
+    zoomLbl.textContent = '';
+    if (!silent) footer.textContent = '4-panel view · click any panel to zoom';
+  }
+
+  // ── Click handler on stage ────────────────────────────────
+  function handleStageClick(e) {
+    if (!SCENARIOS.length) return;
+
+    if (isZoomed) {
+      zoomOut();
+      return;
+    }
+
+    // Determine which quadrant was clicked
+    const rect = stage.getBoundingClientRect();
+    const rx   = (e.clientX - rect.left) / rect.width;
+    const ry   = (e.clientY - rect.top)  / rect.height;
+
+    let quad;
+    if      (rx < 0.5 && ry < 0.5) quad = 'raw';
+    else if (rx >= 0.5 && ry < 0.5) quad = 'classified';
+    else if (rx < 0.5 && ry >= 0.5) quad = 'blur';
+    else                             quad = 'blur2';
+
+    zoomTo(quad);
+  }
+
+  // ── Keyboard ─────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape')      { zoomOut(); }
+    else if (e.key === 'ArrowLeft')  { prevScenario(); }
+    else if (e.key === 'ArrowRight') { nextScenario(); }
+    else if (e.key === 'ArrowUp')    { if (isZoomed) zoomOut(); }
+  });
+
+  // ── Quad zone clicks (delegate to zoomTo) ─────────────────
+  document.querySelectorAll('.quad-zone').forEach(zone => {
+    zone.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!isZoomed) zoomTo(zone.dataset.quad);
+    });
+  });
+
+  init();
+</script>
+</body>
+</html>
