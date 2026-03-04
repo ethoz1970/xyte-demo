@@ -1,8 +1,44 @@
 [
   {
     "id": "scenario-1",
-    "title": "Office Scene",
-    "subtitle": "Person at desk — real-time privacy filtering",
+    "title": "Scenario 1",
+    "subtitle": "Privacy-preserving vision in action",
     "file": "scenario-1.avi"
+  },
+  {
+    "id": "scenario-2",
+    "title": "Scenario 2",
+    "subtitle": "Privacy-preserving vision in action",
+    "file": "scenario-2.avi"
+  },
+  {
+    "id": "scenario-3",
+    "title": "Scenario 3",
+    "subtitle": "Privacy-preserving vision in action",
+    "file": "scenario-3.avi"
+  },
+  {
+    "id": "scenario-4",
+    "title": "Scenario 4",
+    "subtitle": "Privacy-preserving vision in action",
+    "file": "scenario-4.avi"
+  },
+  {
+    "id": "scenario-5",
+    "title": "Scenario 5",
+    "subtitle": "Privacy-preserving vision in action",
+    "file": "scenario-5.avi"
+  },
+  {
+    "id": "scenario-6",
+    "title": "Scenario 6",
+    "subtitle": "Privacy-preserving vision in action",
+    "file": "scenario-6.avi"
+  },
+  {
+    "id": "scenario-7",
+    "title": "Scenario 7",
+    "subtitle": "Privacy-preserving vision in action",
+    "file": "scenario-7.avi"
   }
 ]
