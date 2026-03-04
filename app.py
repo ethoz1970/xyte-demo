@@ -62,7 +62,7 @@ def upload_video():
 
     # Sanitize — only allow simple filenames, no path traversal
     name = os.path.basename(name)
-    if not name.lower().endswith(('.avi', '.mp4', '.mov')):
+    if not name.lower().endswith(('.avi', '.mp4', '.mov', '.m4v')):
         return jsonify({"error": "only .avi / .mp4 / .mov files allowed"}), 400
 
     os.makedirs(VIDEOS_DIR, exist_ok=True)
